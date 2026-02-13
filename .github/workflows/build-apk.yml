@@ -8,35 +8,37 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    container: 
-      image: mingc/android-build-box:latest
-      options: --user root
-    
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+    - uses: actions/checkout@v4
     
-    - name: Fix permissions
+    - name: Setup Java
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+    
+    - name: Setup Android SDK
+      uses: android-actions/setup-android@v3
+      with:
+        api-level: 34
+        build-tools: 34.0.0
+    
+    - name: Grant execute permission
       run: chmod +x gradlew
     
-    - name: Build APK
-      run: |
-        ./gradlew assembleDebug 2>&1 | tee build.log
-        echo "Build completed with exit code: ${PIPESTATUS[0]}"
+    - name: Build debug APK
+      run: ./gradlew assembleDebug --info
     
     - name: Check output
+      if: always()
       run: |
-        echo "Looking for APK..."
-        find . -name "*.apk" -type f 2>/dev/null
-        ls -la app/build/outputs/apk/debug/ 2>/dev/null || echo "Output dir not found"
-        cat build.log | tail -100
+        ls -la app/build/outputs/apk/debug/ || echo "No output dir"
+        find . -name "*.apk" 2>/dev/null | head -5
     
     - name: Upload APK
       uses: actions/upload-artifact@v4
       if: always()
       with:
         name: ClawiTrading-APK
-        path: |
-          app/build/outputs/apk/debug/*.apk
-          build.log
+        path: app/build/outputs/apk/debug/*.apk
         if-no-files-found: warn
