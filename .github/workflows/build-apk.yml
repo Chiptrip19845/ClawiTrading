@@ -1,4 +1,4 @@
-name: Build APK Simple
+name: Build APK
 
 on:
   push:
@@ -8,33 +8,35 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    container: 
+      image: mingc/android-build-box:latest
+      options: --user root
     
     steps:
-    - name: Checkout
+    - name: Checkout code
       uses: actions/checkout@v4
     
-    - name: Setup JDK
-      uses: actions/setup-java@v3
-      with:
-        java-version: '11'
-        distribution: 'temurin'
+    - name: Fix permissions
+      run: chmod +x gradlew
     
-    - name: Setup Android SDK
-      uses: android-actions/setup-android@v2
-    
-    - name: Build with Gradle
+    - name: Build APK
       run: |
-        chmod +x gradlew
-        ./gradlew assembleDebug --info 2>&1 | tail -50
-      continue-on-error: true
+        ./gradlew assembleDebug 2>&1 | tee build.log
+        echo "Build completed with exit code: ${PIPESTATUS[0]}"
     
-    - name: Find APK
-      run: find . -name "*.apk" -type f 2>/dev/null
-      continue-on-error: true
+    - name: Check output
+      run: |
+        echo "Looking for APK..."
+        find . -name "*.apk" -type f 2>/dev/null
+        ls -la app/build/outputs/apk/debug/ 2>/dev/null || echo "Output dir not found"
+        cat build.log | tail -100
     
-    - name: Upload APK Artifact
-      uses: actions/upload-artifact@v3
+    - name: Upload APK
+      uses: actions/upload-artifact@v4
+      if: always()
       with:
         name: ClawiTrading-APK
-        path: app/build/outputs/apk/debug/app-debug.apk
+        path: |
+          app/build/outputs/apk/debug/*.apk
+          build.log
         if-no-files-found: warn
